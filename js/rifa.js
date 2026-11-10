@@ -100,6 +100,7 @@
                     class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-center text-lg tracking-widest focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 <p id="gateError" class="text-sm text-rose-400 text-center ${initialMessage ? '' : 'hidden'}">${initialMessage || ''}</p>
                 <button type="submit" id="gateBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition">Entrar</button>
+                ${opts.admin ? '<a href="index.html" class="block text-center text-sm font-semibold text-slate-400 hover:text-indigo-400">← Volver a las ventas</a>' : ''}
             </form>`;
         document.body.appendChild(overlay);
 

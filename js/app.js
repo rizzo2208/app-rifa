@@ -199,7 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('boxTotalEfectivo').textContent = show(balance.efectivo, money);
         document.getElementById('boxTotalTransf').textContent = show(balance.transferencia, money);
 
-        btnToggleBalance.textContent = balanceHidden ? '🙈' : '👁️';
+        // The label names the action the button will perform.
+        btnToggleBalance.textContent = balanceHidden ? '👁️ Mostrar' : '🙈 Ocultar';
         btnToggleBalance.setAttribute('aria-pressed', String(!balanceHidden));
     }
 
