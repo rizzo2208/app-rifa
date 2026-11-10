@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const usersFile = path.join(__dirname, '..', 'data', 'users.json');
-const salesFile = path.join(__dirname, '..', 'data', 'sales.json');
-const configFile = path.join(__dirname, '..', 'data', 'config.json');
+// DATA_DIR lets a host (e.g. Railway) point storage at a persistent volume.
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+
+const usersFile = path.join(dataDir, 'users.json');
+const salesFile = path.join(dataDir, 'sales.json');
+const configFile = path.join(dataDir, 'config.json');
 
 const DEFAULT_CONFIG = { precioUnitario: 1000 };
 
