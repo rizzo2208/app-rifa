@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const sheets = require('../services/sheets');
 
 const PAYMENT_TYPES = ['efectivo', 'transferencia', 'mixto'];
 
@@ -67,6 +68,7 @@ exports.create = (req, res) => {
     const sales = db.loadSales();
     sales.push(sale);
     db.saveSales(sales);
+    sheets.addSale(sale);
 
     return res.status(201).json(sale);
 };
@@ -118,6 +120,7 @@ exports.update = (req, res) => {
     sale.updatedAt = new Date().toISOString();
 
     db.saveSales(sales);
+    sheets.updateSale(sale);
     return res.status(200).json(sale);
 };
 
@@ -130,8 +133,9 @@ exports.remove = (req, res) => {
         return res.status(404).json({ message: 'Venta no encontrada.' });
     }
 
-    sales.splice(index, 1);
+    const [removed] = sales.splice(index, 1);
     db.saveSales(sales);
+    sheets.deleteSale(removed.id);
 
     return res.status(204).send();
 };
@@ -139,5 +143,6 @@ exports.remove = (req, res) => {
 // DELETE /api/admin/sales (requires admin) — full wipe for the next raffle
 exports.clearAll = (req, res) => {
     db.saveSales([]);
+    sheets.clearAll();
     return res.status(204).send();
 };
