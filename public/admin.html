@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Admin | Rifa Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100 font-sans">
+
+    <header class="bg-slate-900 border-b border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-white">🎟️ Panel de Administración</h1>
+            <div class="flex items-center gap-4">
+                <span id="userName" class="text-sm font-medium text-slate-400">Cargando usuario...</span>
+                <a href="/index.html" class="text-sm font-semibold text-slate-400 hover:text-indigo-400">Volver a la venta</a>
+                <button id="logoutBtn" class="bg-slate-800 hover:bg-rose-950 text-rose-400 px-3 py-1.5 rounded-lg text-sm font-semibold transition">
+                    Cerrar Sesión
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
+
+        <!-- Configuración -->
+        <section>
+            <h2 class="text-2xl font-bold text-white mb-4">Configuración</h2>
+
+            <form id="configForm" class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-1">Precio Unitario por Defecto ($)</label>
+                    <input type="number" id="configPrecio" required min="1" step="1" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-lg shadow transition">
+                    Guardar Configuración
+                </button>
+            </form>
+        </section>
+
+        <!-- Ventas -->
+        <section>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <h2 class="text-2xl font-bold text-white">Ventas</h2>
+                <div class="flex gap-2">
+                    <button id="exportBtn" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition">
+                        Exportar a Excel
+                    </button>
+                    <button id="clearAllBtn" class="px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-400 text-xs font-bold rounded-lg transition border border-rose-900">
+                        Vaciar Caja
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+                    <span class="text-[11px] text-slate-400 block mb-1">Total</span>
+                    <span id="sumTotal" class="text-lg font-extrabold text-emerald-400">$0</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+                    <span class="text-[11px] text-slate-400 block mb-1">Números</span>
+                    <span id="sumNumeros" class="text-lg font-extrabold text-indigo-400">0</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+                    <span class="text-[11px] text-slate-400 block mb-1">Efectivo</span>
+                    <span id="sumCash" class="text-lg font-extrabold text-emerald-400">$0</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+                    <span class="text-[11px] text-slate-400 block mb-1">Transferencia</span>
+                    <span id="sumTransfer" class="text-lg font-extrabold text-sky-400">$0</span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mb-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Filtrar por Vendedor</label>
+                    <select id="filterVendedor" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Filtrar por Forma de Pago</label>
+                    <select id="filterFormaPago" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white">
+                        <option value="">Todas</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="mixto">Mixto</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-950 text-left text-slate-400">
+                        <tr>
+                            <th class="px-4 py-3">Fecha / Hora</th>
+                            <th class="px-4 py-3">Vendedor</th>
+                            <th class="px-4 py-3">Números</th>
+                            <th class="px-4 py-3">Forma de Pago</th>
+                            <th class="px-4 py-3 text-right">Total</th>
+                            <th class="px-4 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal de edición de venta -->
+    <div id="editModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3 border-slate-800">
+                <h3 class="font-bold text-white text-base">Editar Venta</h3>
+                <button id="closeEditModal" class="text-slate-500 hover:text-slate-300 font-bold text-lg">&times;</button>
+            </div>
+
+            <form id="editForm" class="space-y-4">
+                <input type="hidden" id="editSaleId">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Cantidad de Números</label>
+                        <input type="number" id="editCantidad" min="1" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Precio Unitario ($)</label>
+                        <input type="number" id="editPrecioUnitario" min="0" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Forma de Pago</label>
+                    <select id="editFormaPago" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="mixto">Mixto</option>
+                    </select>
+                </div>
+
+                <div id="editMixtoContainer" class="hidden grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Monto Efectivo ($)</label>
+                        <input type="number" id="editMontoEfectivo" min="0" placeholder="0" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Monto Transferencia ($)</label>
+                        <input type="number" id="editMontoTransferencia" min="0" placeholder="0" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="cancelEdit" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-lg text-xs transition">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-xs shadow transition">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
