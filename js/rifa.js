@@ -22,10 +22,9 @@
     }
 
     function apiUrl() {
-        const configured = window.RIFA_CONFIG && window.RIFA_CONFIG.apiUrl && window.RIFA_CONFIG.apiUrl.trim();
-        if (configured) return configured;
+        // On localhost always use the local fake (`npm run dev`), so testing never touches the real sheet.
         if (['localhost', '127.0.0.1'].includes(location.hostname)) return '/exec';
-        return '';
+        return (window.RIFA_CONFIG && window.RIFA_CONFIG.apiUrl && window.RIFA_CONFIG.apiUrl.trim()) || '';
     }
 
     async function call(action, data, pinOverride) {

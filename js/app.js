@@ -181,24 +181,51 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    // ---------- Balance (con modo privado) ----------
+    const BALANCE_HIDDEN_KEY = 'rifaBalanceHidden';
+    const MASK = '••••';
+    const btnToggleBalance = document.getElementById('btnToggleBalance');
+
+    // Hidden by default so nobody glancing at the screen sees the takings; the choice is remembered.
+    let balanceHidden = window.Rifa.read(BALANCE_HIDDEN_KEY) !== 'false';
+    let balance = { recaudado: 0, numeros: 0, efectivo: 0, transferencia: 0 };
+
+    function renderBalance() {
+        const show = (value, formatted) => (balanceHidden ? MASK : formatted(value));
+        const money = (v) => priceFormatter.format(v);
+
+        document.getElementById('boxTotalRecaudado').textContent = show(balance.recaudado, money);
+        document.getElementById('boxTotalNumeros').textContent = show(balance.numeros, String);
+        document.getElementById('boxTotalEfectivo').textContent = show(balance.efectivo, money);
+        document.getElementById('boxTotalTransf').textContent = show(balance.transferencia, money);
+
+        btnToggleBalance.textContent = balanceHidden ? '🙈' : '👁️';
+        btnToggleBalance.setAttribute('aria-pressed', String(!balanceHidden));
+    }
+
+    btnToggleBalance.addEventListener('click', () => {
+        balanceHidden = !balanceHidden;
+        window.Rifa.store(BALANCE_HIDDEN_KEY, String(balanceHidden));
+        renderBalance();
+    });
+
+    renderBalance();
+
     // ---------- Historial / balance ----------
     async function loadHistorial() {
         try {
             const { ventas: sales } = await api.list();
 
-            let totalRecaudado = 0, totalNumeros = 0, totalEfec = 0, totalTransf = 0;
+            balance = { recaudado: 0, numeros: 0, efectivo: 0, transferencia: 0 };
 
             sales.forEach(s => {
-                totalRecaudado += s.total;
-                totalNumeros += s.cantidad;
-                totalEfec += s.montoEfectivo;
-                totalTransf += s.montoTransferencia;
+                balance.recaudado += s.total;
+                balance.numeros += s.cantidad;
+                balance.efectivo += s.montoEfectivo;
+                balance.transferencia += s.montoTransferencia;
             });
 
-            document.getElementById('boxTotalRecaudado').textContent = priceFormatter.format(totalRecaudado);
-            document.getElementById('boxTotalNumeros').textContent = totalNumeros;
-            document.getElementById('boxTotalEfectivo').textContent = priceFormatter.format(totalEfec);
-            document.getElementById('boxTotalTransf').textContent = priceFormatter.format(totalTransf);
+            renderBalance();
 
             const tbody = document.getElementById('tablaVentasBody');
             tbody.innerHTML = '';
