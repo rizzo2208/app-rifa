@@ -2,12 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const rifaForm = document.getElementById('rifaForm');
     if (!rifaForm) return; // not on index.html
 
-    const priceFormatter = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        maximumFractionDigits: 0
-    });
+    const { api, priceFormatter, pagoBadges, esc } = window.Rifa;
 
+    const VENDEDOR_KEY = 'rifaVendedor';
+
+    const vendedorInput = document.getElementById('vendedor');
     const cantidadInput = document.getElementById('cantidadNumeros');
     const precioInput = document.getElementById('precioUnitario');
     const formaPagoSelect = document.getElementById('formaPago');
@@ -18,14 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Which mixed-payment box the user typed in last; the other one is derived from it.
     let lastEdited = 'efectivo';
 
-    function authHeaders() {
-        const token = localStorage.getItem('userToken');
-        return {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        };
-    }
-
     function getTotal() {
         const cant = Math.max(0, parseInt(cantidadInput.value, 10) || 0);
         const precio = parseFloat(precioInput.value) || 0;
@@ -34,18 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function round2(n) {
         return Math.round(n * 100) / 100;
-    }
-
-    // Shows how much was paid in cash and by transfer instead of a bare "mixto" label.
-    function pagoBadges(sale) {
-        const parts = [];
-        if (sale.montoEfectivo > 0) {
-            parts.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">💵 ${priceFormatter.format(sale.montoEfectivo)}</span>`);
-        }
-        if (sale.montoTransferencia > 0) {
-            parts.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30 whitespace-nowrap">📲 ${priceFormatter.format(sale.montoTransferencia)}</span>`);
-        }
-        return `<div class="flex flex-wrap gap-1">${parts.join('')}</div>`;
     }
 
     // ---------- Tabs ----------
@@ -155,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const payload = {
+            vendedor: vendedorInput.value.trim(),
             cantidad,
             precioUnitario: parseFloat(precioInput.value) || 0,
             formaPago: formaPagoSelect.value
@@ -170,20 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSubmit.textContent = 'Registrando...';
 
         try {
-            const res = await fetch('/api/sales', {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify(payload)
-            });
+            const data = await api.add(payload);
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                alert(data.message || 'No se pudo registrar la venta.');
-                return;
-            }
-
-            mostrarUltimaVenta(data);
+            window.Rifa.store(VENDEDOR_KEY, payload.vendedor);
+            mostrarUltimaVenta(data.venta);
             formaPagoSelect.value = 'efectivo';
             mixtoContainer.classList.add('hidden');
             setCantidad(1);
@@ -191,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadHistorial();
         } catch (error) {
             console.error('Error al registrar venta:', error);
-            alert('Ocurrió un error al registrar la venta.');
+            alert(error.message || 'Ocurrió un error al registrar la venta.');
         } finally {
             btnSubmit.disabled = false;
             btnSubmit.textContent = 'Confirmar y Registrar Venta';
@@ -211,23 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // ---------- Configuración (precio) ----------
-    async function loadConfig() {
-        try {
-            const res = await fetch('/api/config', { headers: authHeaders() });
-            const config = await res.json();
-            precioInput.value = config.precioUnitario;
-            calcularTotal();
-        } catch (error) {
-            console.error('Error al cargar configuración:', error);
-        }
-    }
-
     // ---------- Historial / balance ----------
     async function loadHistorial() {
         try {
-            const res = await fetch('/api/sales', { headers: authHeaders() });
-            const sales = await res.json();
+            const { ventas: sales } = await api.list();
 
             let totalRecaudado = 0, totalNumeros = 0, totalEfec = 0, totalTransf = 0;
 
@@ -256,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.className = 'hover:bg-slate-800/40 transition';
                 tr.innerHTML = `
                     <td class="p-3 text-slate-400 whitespace-nowrap">${new Date(sale.createdAt).toLocaleString('es-AR')}</td>
-                    <td class="p-3 font-semibold text-slate-200">${sale.vendedorName}</td>
+                    <td class="p-3 font-semibold text-slate-200">${esc(sale.vendedorName)}</td>
                     <td class="p-3 font-mono text-indigo-300 font-bold">${sale.cantidad}</td>
                     <td class="p-3">${pagoBadges(sale)}</td>
                     <td class="p-3 text-right font-bold text-emerald-400">${priceFormatter.format(sale.total)}</td>
@@ -268,6 +225,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    loadConfig();
-    loadHistorial();
+    // ---------- Arranque: PIN primero ----------
+    window.Rifa.requireAuth().then((session) => {
+        window.Rifa.wireLogout();
+
+        document.getElementById('userName').textContent = session.role === 'admin' ? 'Administrador' : 'Vendedor';
+        if (session.role === 'admin') document.getElementById('adminLink').classList.remove('hidden');
+
+        vendedorInput.value = window.Rifa.read(VENDEDOR_KEY) || '';
+        precioInput.value = session.precioUnitario;
+        calcularTotal();
+        loadHistorial();
+    });
 });

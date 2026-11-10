@@ -1,97 +1,48 @@
 document.addEventListener('DOMContentLoaded', () => {
     const salesTableBody = document.getElementById('salesTableBody');
-    if (!salesTableBody) return; // no estamos en admin.html
+    if (!salesTableBody) return; // not on admin.html
 
-    const priceFormatter = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        maximumFractionDigits: 0
-    });
+    const { api, priceFormatter, pagoBadges, pagoTexto, esc } = window.Rifa;
 
-    function authHeaders() {
-        const token = localStorage.getItem('userToken');
-        return {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        };
-    }
-
-    // ---------- Configuración ----------
+    let allSales = [];
 
     const configForm = document.getElementById('configForm');
     const configPrecioInput = document.getElementById('configPrecio');
 
-    async function loadConfig() {
-        try {
-            const res = await fetch('/api/config', { headers: authHeaders() });
-            const config = await res.json();
-            configPrecioInput.value = config.precioUnitario;
-        } catch (error) {
-            console.error('Error al cargar configuración:', error);
-        }
-    }
-
-    configForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const payload = {
-            precioUnitario: Number(configPrecioInput.value)
-        };
-
-        try {
-            const res = await fetch('/api/admin/config', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) });
-            const data = await res.json();
-
-            if (!res.ok) {
-                alert(data.message || 'No se pudo guardar la configuración.');
-                return;
-            }
-
-            alert('Configuración guardada.');
-        } catch (error) {
-            console.error('Error al guardar configuración:', error);
-        }
-    });
-
-    // ---------- Ventas ----------
-
-    let allSales = [];
     const editModal = document.getElementById('editModal');
     const editForm = document.getElementById('editForm');
     const editFormaPagoSelect = document.getElementById('editFormaPago');
     const editMixtoContainer = document.getElementById('editMixtoContainer');
-    const filterVendedor = document.getElementById('filterVendedor');
-    const filterFormaPago = document.getElementById('filterFormaPago');
+    const editVendedorInput = document.getElementById('editVendedor');
     const editCantidadInput = document.getElementById('editCantidad');
     const editPrecioInput = document.getElementById('editPrecioUnitario');
     const editEfectivoInput = document.getElementById('editMontoEfectivo');
     const editTransferenciaInput = document.getElementById('editMontoTransferencia');
+    const filterVendedor = document.getElementById('filterVendedor');
+    const filterFormaPago = document.getElementById('filterFormaPago');
     let editLastEdited = 'efectivo';
 
-    // Shows how much was paid in cash and by transfer instead of a bare "mixto" label.
-    function pagoBadges(sale) {
-        const parts = [];
-        if (sale.montoEfectivo > 0) {
-            parts.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">💵 ${priceFormatter.format(sale.montoEfectivo)}</span>`);
-        }
-        if (sale.montoTransferencia > 0) {
-            parts.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30 whitespace-nowrap">📲 ${priceFormatter.format(sale.montoTransferencia)}</span>`);
-        }
-        return `<div class="flex flex-wrap gap-1">${parts.join('')}</div>`;
-    }
+    // ---------- Configuración ----------
 
-    function pagoTexto(sale) {
-        if (sale.formaPago === 'efectivo') return 'Efectivo';
-        if (sale.formaPago === 'transferencia') return 'Transferencia';
-        return `Mixto (Efectivo ${priceFormatter.format(sale.montoEfectivo)} + Transferencia ${priceFormatter.format(sale.montoTransferencia)})`;
-    }
+    configForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            await api.setPrice(Number(configPrecioInput.value));
+            alert('Configuración guardada.');
+        } catch (error) {
+            alert(error.message || 'No se pudo guardar la configuración.');
+        }
+    });
+
+    // ---------- Ventas ----------
 
     function buildSaleRow(sale) {
         const tr = document.createElement('tr');
         tr.className = 'border-t border-slate-800';
         tr.innerHTML = `
             <td class="px-4 py-3 text-slate-400 whitespace-nowrap">${new Date(sale.createdAt).toLocaleString('es-AR')}</td>
-            <td class="px-4 py-3 text-slate-200 font-medium">${sale.vendedorName}</td>
+            <td class="px-4 py-3 text-slate-200 font-medium">${esc(sale.vendedorName)}</td>
             <td class="px-4 py-3 font-mono text-indigo-300 font-bold">${sale.cantidad}</td>
             <td class="px-4 py-3">${pagoBadges(sale)}</td>
             <td class="px-4 py-3 text-right font-bold text-emerald-400">${priceFormatter.format(sale.total)}</td>
@@ -110,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const names = [...new Set(sales.map(s => s.vendedorName))].sort();
 
         filterVendedor.innerHTML = '<option value="">Todos</option>' +
-            names.map(name => `<option value="${name}">${name}</option>`).join('');
+            names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
 
         if (names.includes(current)) filterVendedor.value = current;
     }
@@ -147,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSales() {
         try {
-            const res = await fetch('/api/sales', { headers: authHeaders() });
-            allSales = await res.json();
+            const data = await api.list();
+            allSales = data.ventas;
             populateVendedorFilter(allSales);
             renderSales();
         } catch (error) {
@@ -161,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openEditModal(sale) {
         document.getElementById('editSaleId').value = sale.id;
+        editVendedorInput.value = sale.vendedorName;
         editCantidadInput.value = sale.cantidad;
         editPrecioInput.value = sale.precioUnitario;
         editFormaPagoSelect.value = sale.formaPago;
@@ -221,8 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
     editForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const id = document.getElementById('editSaleId').value;
+        const id = Number(document.getElementById('editSaleId').value);
         const payload = {
+            vendedor: editVendedorInput.value.trim(),
             cantidad: Number(editCantidadInput.value),
             precioUnitario: Number(editPrecioInput.value),
             formaPago: editFormaPagoSelect.value
@@ -234,18 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch(`/api/admin/sales/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) });
-            const data = await res.json();
-
-            if (!res.ok) {
-                alert(data.message || 'No se pudo guardar la venta.');
-                return;
-            }
-
+            await api.update(id, payload);
             closeEditModal();
             loadSales();
         } catch (error) {
-            console.error('Error al editar venta:', error);
+            alert(error.message || 'No se pudo guardar la venta.');
         }
     });
 
@@ -253,15 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('¿Eliminar esta venta?')) return;
 
         try {
-            const res = await fetch(`/api/admin/sales/${id}`, { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok && res.status !== 204) {
-                const data = await res.json();
-                alert(data.message || 'No se pudo eliminar la venta.');
-                return;
-            }
+            await api.remove(id);
             loadSales();
         } catch (error) {
-            console.error('Error al eliminar venta:', error);
+            alert(error.message || 'No se pudo eliminar la venta.');
         }
     }
 
@@ -270,14 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('🚨 Última confirmación: asegurate de haber exportado el Excel antes de continuar. ¿Proceder?')) return;
 
         try {
-            const res = await fetch('/api/admin/sales', { method: 'DELETE', headers: authHeaders() });
-            if (!res.ok && res.status !== 204) {
-                alert('No se pudo vaciar la caja.');
-                return;
-            }
+            await api.clearAll();
             loadSales();
         } catch (error) {
-            console.error('Error al vaciar la caja:', error);
+            alert(error.message || 'No se pudo vaciar la caja.');
         }
     });
 
@@ -307,6 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
         XLSX.writeFile(workbook, `Ventas_Rifa_${new Date().toISOString().slice(0, 10)}.xlsx`);
     });
 
-    loadConfig();
-    loadSales();
+    // ---------- Arranque: solo con PIN de administrador ----------
+    window.Rifa.requireAuth({ admin: true }).then((session) => {
+        window.Rifa.wireLogout();
+        document.getElementById('userName').textContent = 'Administrador';
+        configPrecioInput.value = session.precioUnitario;
+        loadSales();
+    });
 });
