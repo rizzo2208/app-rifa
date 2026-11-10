@@ -71,7 +71,14 @@ function getSheet_() {
   let sheet = ss.getSheetByName(SHEET_NAME);
 
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
+    // Reuse the default empty first tab of a brand-new spreadsheet instead of leaving it blank.
+    const first = ss.getSheets()[0];
+    if (first.getLastRow() === 0) {
+      sheet = first;
+      sheet.setName(SHEET_NAME);
+    } else {
+      sheet = ss.insertSheet(SHEET_NAME);
+    }
   }
 
   if (sheet.getLastRow() === 0) {
